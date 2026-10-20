@@ -554,7 +554,6 @@ public partial class PageInstanceOverall : IPageView
     // 补全文件
     private void BtnManageCheck_Click(object sender, MouseButtonEventArgs e)
     {
-        if (!RestrictedFeaturePolicy.Check("minecraft-repair")) return;
         try
         {
             // 忽略文件检查提示
@@ -621,7 +620,6 @@ public partial class PageInstanceOverall : IPageView
     // 重置
     private async void BtnManageRestore_Click(object sender, MouseButtonEventArgs e)
     {
-        if (!RestrictedFeaturePolicy.Check("minecraft-reset")) return;
         var ctl = sender as Control;
         if (ctl is not null) ctl.IsEnabled = false;
         try
