@@ -31,9 +31,21 @@ public static partial class JarInJar
         }
         catch (Exception ex)
         {
-            LauncherCommon.Log(ex, "解析 fabric.mod.json 内嵌清单失败", LauncherLogLevel.Developer);
-            return false;
+            // 清单可能是作者手写的非法 JSON（例如字符串里存在未转义的换行），
+            // 此时回退为扫描标准目录，避免该 Mod 永久停留在“解析未完成”状态。
+            LauncherCommon.Log(ex, "解析 fabric.mod.json 内嵌清单失败，回退为目录扫描", LauncherLogLevel.Developer);
+            _CollectJarsFromFolder(jar, found, "META-INF/jars/");
+            return true;
         }
+    }
+
+    /// <summary>清单解析失败时的兜底：按目录约定收集内嵌 jar。</summary>
+    private static void _CollectJarsFromFolder(ZipArchive jar, List<NestedJarInfo> found, string prefix)
+    {
+        foreach (var entry in jar.Entries)
+            if (entry.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                && entry.FullName.EndsWith(".jar", StringComparison.OrdinalIgnoreCase))
+                found.Add(new NestedJarInfo { Path = entry.FullName });
     }
 
     private static bool _CollectForgeNestedJars(ZipArchive jar, List<NestedJarInfo> found)
@@ -75,9 +87,10 @@ public static partial class JarInJar
         {
             LauncherCommon.Log(
                 ex,
-                "解析 META-INF/jarjar/metadata.json 内嵌清单失败",
+                "解析 META-INF/jarjar/metadata.json 内嵌清单失败，回退为目录扫描",
                 LauncherLogLevel.Developer);
-            return false;
+            _CollectJarsFromFolder(jar, found, "META-INF/jarjar/");
+            return true;
         }
     }
 
@@ -112,9 +125,10 @@ public static partial class JarInJar
         {
             LauncherCommon.Log(
                 ex,
-                "解析 quilt.mod.json 内嵌清单失败",
+                "解析 quilt.mod.json 内嵌清单失败，回退为目录扫描",
                 LauncherLogLevel.Developer);
-            return false;
+            _CollectJarsFromFolder(jar, found, "META-INF/jars/");
+            return true;
         }
     }
 
@@ -158,8 +172,9 @@ public static partial class JarInJar
         }
         catch (Exception ex)
         {
+            // 清单本身读不出来时无法再推断路径，只能放弃内嵌信息，但不能因此让整个 Mod 永久处于未解析状态。
             LauncherCommon.Log(ex, "解析 MANIFEST.MF 内嵌声明失败", LauncherLogLevel.Developer);
-            return false;
+            return true;
         }
     }
 
