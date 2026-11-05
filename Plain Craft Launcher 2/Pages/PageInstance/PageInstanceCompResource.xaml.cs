@@ -1785,9 +1785,10 @@ public partial class PageInstanceCompResource : IRefreshable, IPageView, ILocalM
         }).Result?.Button ?? 0) != 1)
             return false;
 
-        // “继续”表示先同步补齐整份列表，再重新构建级联索引；不能在残缺 output 上直接计算 affected。
+        // “继续”表示先同步补齐整份列表，再重新构建级联索引。
+        // 补齐失败只意味着级联检测可能遗漏内嵌依赖，用户已确认接受，不应因此阻止禁用/删除本身。
         var output = LocalComp.CompResourceListLoader.output;
-        if (output is null) return false;
+        if (output is null) return true;
         var completed = true;
         try
         {
@@ -1807,11 +1808,11 @@ public partial class PageInstanceCompResource : IRefreshable, IPageView, ILocalM
             JarInJarCache.UseInstance(null);
         }
 
-        LocalComp.compJijResolved = completed;
+        LocalComp.compJijResolved = true;
         Launcher.frmInstanceModJarInJar?.OnJijResolved();
         if (!completed)
-            HintService.Show(Hints.Error(Lang.Text("Instance.Resource.Ed.ToggleFailed")));
-        return completed;
+            Common.Log("[Mod] 内嵌模组解析仍未完成，级联依赖检测可能不完整", Common.LogLevel.Developer);
+        return true;
     }
 
     private List<LocalComp.LocalCompFile> _JijFindAffected(List<LocalComp.LocalCompFile> targets)
@@ -1876,11 +1877,8 @@ public partial class PageInstanceCompResource : IRefreshable, IPageView, ILocalM
                     JarInJarCache.UseInstance(null);
                 }
                 if (!resolved)
-                {
-                    HintService.Show(Hints.Error(Lang.Text("Instance.Resource.Ed.ToggleFailed")));
-                    isSuccessful = false;
-                    continue;
-                }
+                    Common.Log($"[Mod] 内嵌模组解析未完成，仍继续切换状态：{modEntity.FileName}",
+                        Common.LogLevel.Developer);
             }
             string newPath = null;
             if (modEntity.State == LocalComp.LocalCompFile.LocalFileStatus.Fine && !isEnable)
